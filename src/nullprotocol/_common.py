@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from threading import Lock
 from typing import Any, TypeVar
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
@@ -60,6 +61,7 @@ def operation_payload(
     scope: str | None,
     knowledge: Knowledge | None,
     context_keys: list[str] | None,
+    images: list[str] | None = None,
 ) -> dict[str, Any]:
     body = {"operation": operation, **values}
     if scope is not None:
@@ -85,6 +87,17 @@ def operation_payload(
         if not isinstance(context_keys, list) or len(context_keys) > 16:
             raise ValueError("context_keys must be a list of at most 16 keys.")
         body["contextKeys"] = [identifier(key, "context key") for key in context_keys]
+    if images is not None:
+        if not isinstance(images, list) or len(images) > 4:
+            raise ValueError("images must be a list of at most four HTTPS photo URLs.")
+        for address in images:
+            if not isinstance(address, str) or utf16_length(address) > 2048:
+                raise ValueError("Each photo needs an HTTPS URL of at most 2048 characters.")
+            url = urlsplit(address)
+            if url.scheme != "https" or not url.hostname or url.username or url.password:
+                raise ValueError("Photo URLs must use HTTPS without embedded credentials.")
+        if images:
+            body["images"] = list(images)
     if len(json_body(body)) > 131072:
         raise ValueError("The HTTP operation body exceeds 131072 UTF-8 bytes.")
     return body

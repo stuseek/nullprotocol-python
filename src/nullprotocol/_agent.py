@@ -184,9 +184,10 @@ class Agent(AgentState):
         knowledge: Knowledge | None,
         context_keys: list[str] | None,
         idempotency_key: str | None,
+        images: list[str] | None = None,
     ) -> Result[Any]:
         task_id = self._task_id(idempotency_key)
-        body = operation_payload(operation, values, self.scope, knowledge, context_keys)
+        body = operation_payload(operation, values, self.scope, knowledge, context_keys, images)
         return _result(
             self._transport.request(
                 "POST",
@@ -203,12 +204,18 @@ class Agent(AgentState):
         data: Any,
         schema: dict[str, Any],
         *,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
     ) -> Result[Any]:
         return self._run(
-            "extract", {"data": data, "schema": schema}, knowledge, context_keys, idempotency_key
+            "extract",
+            {"data": data, "schema": schema},
+            knowledge,
+            context_keys,
+            idempotency_key,
+            images,
         )
 
     def summarize(
@@ -217,6 +224,7 @@ class Agent(AgentState):
         *,
         max_length: int = 200,
         focus: str | None = None,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -227,6 +235,7 @@ class Agent(AgentState):
             knowledge,
             context_keys,
             idempotency_key,
+            images,
         )
 
     def validate(
@@ -235,6 +244,7 @@ class Agent(AgentState):
         subject: Any,
         *,
         reference: Any = _UNSET,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -245,6 +255,7 @@ class Agent(AgentState):
             knowledge,
             context_keys,
             idempotency_key,
+            images,
         )
 
     def decide(
@@ -252,6 +263,7 @@ class Agent(AgentState):
         context: Any,
         actions: list[ActionChoice],
         *,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -264,6 +276,7 @@ class Agent(AgentState):
             _knowledge_for_decision(original, values, knowledge),
             context_keys,
             idempotency_key,
+            images,
         )
         return self._remember(result, original)
 
@@ -379,9 +392,10 @@ class AsyncAgent(AgentState):
         knowledge: Knowledge | None,
         context_keys: list[str] | None,
         idempotency_key: str | None,
+        images: list[str] | None = None,
     ) -> Result[Any]:
         task_id = self._task_id(idempotency_key)
-        body = operation_payload(operation, values, self.scope, knowledge, context_keys)
+        body = operation_payload(operation, values, self.scope, knowledge, context_keys, images)
         return _result(
             await self._transport.request(
                 "POST",
@@ -398,12 +412,18 @@ class AsyncAgent(AgentState):
         data: Any,
         schema: dict[str, Any],
         *,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
     ) -> Result[Any]:
         return await self._run(
-            "extract", {"data": data, "schema": schema}, knowledge, context_keys, idempotency_key
+            "extract",
+            {"data": data, "schema": schema},
+            knowledge,
+            context_keys,
+            idempotency_key,
+            images,
         )
 
     async def summarize(
@@ -412,6 +432,7 @@ class AsyncAgent(AgentState):
         *,
         max_length: int = 200,
         focus: str | None = None,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -422,6 +443,7 @@ class AsyncAgent(AgentState):
             knowledge,
             context_keys,
             idempotency_key,
+            images,
         )
 
     async def validate(
@@ -430,6 +452,7 @@ class AsyncAgent(AgentState):
         subject: Any,
         *,
         reference: Any = _UNSET,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -440,6 +463,7 @@ class AsyncAgent(AgentState):
             knowledge,
             context_keys,
             idempotency_key,
+            images,
         )
 
     async def decide(
@@ -447,6 +471,7 @@ class AsyncAgent(AgentState):
         context: Any,
         actions: list[ActionChoice],
         *,
+        images: list[str] | None = None,
         knowledge: Knowledge | None = None,
         context_keys: list[str] | None = None,
         idempotency_key: str | None = None,
@@ -459,6 +484,7 @@ class AsyncAgent(AgentState):
             _knowledge_for_decision(original, values, knowledge),
             context_keys,
             idempotency_key,
+            images,
         )
         return self._remember(result, original)
 
