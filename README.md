@@ -4,10 +4,10 @@ Run focused AI tasks with saved instructions, context and Knowledge. Create an a
 
 Python 3.10+. Both synchronous and asynchronous clients are included. This SDK calls NullProtocol-hosted agents; its model operations and History are handled by the existing HTTP API.
 
-The package is being prepared for its first release. From this checkout:
+Install the Python package:
 
 ```sh
-python -m pip install .
+python -m pip install nullprotocol
 ```
 
 ## First request

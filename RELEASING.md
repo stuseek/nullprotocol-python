@@ -1,6 +1,6 @@
 # Release
 
-The first distribution is prepared locally. It has not been published to PyPI.
+Build and verify a release before publishing. Registry state and artifact hashes are recorded in the workspace release evidence.
 
 From this directory:
 

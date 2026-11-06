@@ -2,7 +2,7 @@
 
 ## 0.1.0 — 2026-11-06
 
-First Python SDK, prepared for release.
+First Python SDK.
 
 - Synchronous and asynchronous clients for saved NullProtocol agents.
 - Extract, summarize, validate and decide through the hosted run API.

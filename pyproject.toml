@@ -28,7 +28,9 @@ dev = ["pytest>=8,<10", "ruff>=0.11,<1", "mypy>=1.15,<2", "types-jsonschema>=4.2
 
 [project.urls]
 Homepage = "https://nullprotocol.ai"
-Documentation = "https://nullprotocol.ai/docs"
+Documentation = "https://nullprotocol.ai/docs/python"
+Repository = "https://github.com/stuseek/nullprotocol-python"
+Issues = "https://github.com/stuseek/nullprotocol-python/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nullprotocol"]
