@@ -115,9 +115,37 @@ result = agent.validate(
 )
 ```
 
-Add/prepare documents and connect Space sources in the dashboard first. All four operations accept `knowledge=True` or `{"query": "..."}`. Omitted/False means no search. Scope IDs do not narrow Knowledge connections. `result.knowledge` contains the actual source selection, and `result.knowledge_usage` tracks search embeddings separately from generation `result.usage`.
+Add/prepare documents and connect Space sources in the dashboard or through the SDK. All four operations accept `knowledge=True` or `{"query": "..."}`. Omitted/False means no search. Scope IDs do not narrow Knowledge connections. `result.knowledge` contains the actual source selection, and `result.knowledge_usage` tracks search embeddings separately from generation `result.usage`.
 
 Reference texts under Context are included automatically and in full. Python uses the HTTP API's default 6000-character reference-text budget; the run endpoint does not accept the JavaScript SDK's `documentBudget` option. Longer sources belong in Knowledge. The complete request must still fit the model's window.
+
+## Manage Knowledge sources
+
+```python
+shared = agent.space.knowledge.add(
+    name="Returns policy",
+    text="# Returns\nUnused goods may be returned within 30 days.",
+)
+source = agent.space.knowledge.get(shared["id"])
+if source["state"] == "ready":
+    agent.knowledge.connect(shared["id"])
+
+own = agent.knowledge.add(name="FAQ", text="We ship on weekdays.")
+changed = agent.knowledge.update(
+    own["id"],
+    text="We ship Monday to Thursday.",
+    if_version=own["version"],
+)
+agent.knowledge.delete(own["id"], if_version=changed["version"])
+```
+
+Use these snippets inside the client context above. `add`/`update` return `id`, `revision` and `version`; preparation is asynchronous. Inspect `get(id)["state"]`: preparing, ready or failed, plus `activeRevision`, `error` and `retryScheduled`. For a live agent, stage a new document in the Space library and connect it after it is ready. An unprepared new agent-owned/connected source refuses Knowledge calls; calls without Knowledge continue. A replacement keeps the previous prepared revision in use until the new one is ready.
+
+Both stores provide `add`, `list`, `get`, `update`, `delete` and `retry`. `agent.knowledge.list()` lists only agent-owned documents. `agent.space.knowledge.list()` lists the shared library, and `agent.knowledge.connections()` lists connected Space sources. Read/update/delete through the owning store; connecting does not copy a document. Use `connect(id)`/`disconnect(id)` on `agent.knowledge`. Scope IDs do not change Knowledge ownership or connections.
+
+Updates and deletes require `if_version`; a competing edit raises `APIError` with code `version_conflict`. The SDK never silently substitutes a newer version. A rename changes the version but not the text revision. `retry(id)` explicitly restarts failed preparation and returns a `retrying` flag; it does not wait or reindex a ready document. Preparation and searches can use embedding tokens. `agent.space.knowledge.usage()` returns 30-day Space totals: `preparation`, `search`, `uncounted` and `requests`, preserving unknown sums as None and reported sums as decimal strings.
+
+All these methods are awaited on an async agent. Sources accept nonempty UTF-8 text up to 1 MiB without NUL; names hold up to 120 UTF-16 characters. A TXT/Markdown file can be read with `Path(path).read_text(encoding="utf-8")` and passed to `add`; PDF/DOCX parsing is not included. Adding or connecting sources does not automatically turn on search: pass `knowledge=True` or an explicit query per operation.
 
 ## Local actions
 

@@ -18,7 +18,15 @@ from ._common import (
     validation_options,
 )
 from ._errors import APIError, ProtocolError
-from ._stores import AsyncContextStore, AsyncMemoryStore, ContextStore, MemoryStore
+from ._knowledge import AgentKnowledge, AsyncAgentKnowledge
+from ._stores import (
+    AsyncContextStore,
+    AsyncMemoryStore,
+    AsyncSpaceContextStore,
+    ContextStore,
+    MemoryStore,
+    SpaceContextStore,
+)
 from ._transport import _UNSET, AsyncTransport, Transport, json_body
 from ._types import ActionContext, Execution, Result
 
@@ -132,7 +140,8 @@ class Agent(AgentState):
         super().__init__(agent_id, scope)
         self._transport = transport
         self.context = ContextStore(transport, self._path + "/context", self.scope)
-        self.space = ContextStore(transport, "/context")
+        self.space = SpaceContextStore(transport)
+        self.knowledge = AgentKnowledge(transport, self.agent_id)
         self.memory = MemoryStore(transport, self._path + "/memory", self.scope)
 
     def with_scope(self, scope: str | None) -> Agent:
@@ -327,7 +336,8 @@ class AsyncAgent(AgentState):
         super().__init__(agent_id, scope)
         self._transport = transport
         self.context = AsyncContextStore(transport, self._path + "/context", self.scope)
-        self.space = AsyncContextStore(transport, "/context")
+        self.space = AsyncSpaceContextStore(transport)
+        self.knowledge = AsyncAgentKnowledge(transport, self.agent_id)
         self.memory = AsyncMemoryStore(transport, self._path + "/memory", self.scope)
 
     def with_scope(self, scope: str | None) -> AsyncAgent:

@@ -3,10 +3,15 @@
 from ._agent import Agent, AsyncAgent
 from ._client import AsyncNullProtocol, NullProtocol
 from ._errors import APIError, NullProtocolError, ProtocolError, TransportError
+from ._knowledge import AgentKnowledge, AsyncAgentKnowledge, AsyncKnowledgeLibrary, KnowledgeLibrary
 from ._types import ActionContext, Execution, KnowledgeUsage, Result, Usage
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
+    "AgentKnowledge",
+    "KnowledgeLibrary",
+    "AsyncAgentKnowledge",
+    "AsyncKnowledgeLibrary",
     "APIError",
     "ActionContext",
     "Agent",

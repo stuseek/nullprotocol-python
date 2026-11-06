@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 — 2026-11-06
+
+- Agent and Space Knowledge management, including source CRUD, state, preparation retry, connections and embedding usage.
+- Explicit document version guards on replacement/deletion, with matching sync and async APIs.
+- Management stays agent-wide across data scopes and does not enable retrieval automatically.
+
 ## 0.1.0 — 2026-11-06
 
 First Python SDK.

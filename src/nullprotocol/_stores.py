@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ._common import list_field, object_field, version
+from ._knowledge import AsyncKnowledgeLibrary, KnowledgeLibrary
 from ._transport import _UNSET, AsyncTransport, Transport, identifier
 
 
@@ -174,3 +175,15 @@ class AsyncMemoryStore:
 
     async def delete(self, note_id: str) -> None:
         await self._transport.request("DELETE", self._path + "/" + version(note_id))
+
+
+class SpaceContextStore(ContextStore):
+    def __init__(self, transport: Transport) -> None:
+        super().__init__(transport, "/context")
+        self.knowledge = KnowledgeLibrary(transport)
+
+
+class AsyncSpaceContextStore(AsyncContextStore):
+    def __init__(self, transport: AsyncTransport) -> None:
+        super().__init__(transport, "/context")
+        self.knowledge = AsyncKnowledgeLibrary(transport)
