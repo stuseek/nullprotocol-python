@@ -9,7 +9,7 @@ with NullProtocol() as client:
     result = agent.extract(
         "Identify the landmark in the photo.",
         {"landmark": "string"},
-        images=[os.environ.get("PHOTO_URL", "https://docs.mistral.ai/img/eiffel-tower-paris.jpg")],
+        images=[os.environ.get("PHOTO_URL", "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80")],
     )
     if not result.success:
         print(result.error_code, result.error)
