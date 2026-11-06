@@ -236,3 +236,17 @@ mypy src
 ```
 
 Tests use a scripted HTTP fixture, not paid providers. The workspace integration proof also runs this client against the actual API/gateway and an isolated PostgreSQL database with scripted generation/embeddings. These checks verify integration, not model accuracy.
+
+## Photo input
+
+```python
+result = agent.extract(
+    "Identify the landmark.",
+    {"landmark": "string"},
+    images=["https://docs.mistral.ai/img/eiffel-tower-paris.jpg"],
+)
+```
+
+Use the loaded agent inside your client context. All four operations support up to four reachable HTTPS photo URLs of at most 2048 UTF-16 characters. Async clients accept the same keyword. Select a Vision-capable model. Empty text is allowed for photo-only input; validate still needs criteria and decide needs its actions. Inline base64, browser blob URLs and local files are not supported.
+
+History retains URLs, not immutable copies of remote images. Knowledge uses a text query, not the photo or its URL; supply an explicit query for a photo-only search. Generation usage includes provider-reported image tokens. The gateway conservatively holds credit against the model context ceiling for photo calls, settles actual reported usage and releases the unused reserve. [Photo guide](https://nullprotocol.ai/docs/images?lang=python).

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Add images to all four sync/async operations, with HTTPS URL validation, explicit model capability refusals and unchanged text requests.
+
 ## 0.2.0 — 2026-11-06
 
 - Agent and Space Knowledge management, including source CRUD, state, preparation retry, connections and embedding usage.
