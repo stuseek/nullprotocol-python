@@ -243,7 +243,7 @@ Tests use a scripted HTTP fixture, not paid providers. The workspace integration
 result = agent.extract(
     "Identify the landmark.",
     {"landmark": "string"},
-    images=["https://docs.mistral.ai/img/eiffel-tower-paris.jpg"],
+    images=["https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80"],
 )
 ```
 
