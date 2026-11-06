@@ -2,7 +2,7 @@
 
 import time
 
-from nullprotocol import NullProtocolError, NullProtocol
+from nullprotocol import NullProtocol, NullProtocolError
 
 with NullProtocol() as client:
     agent = client.load("support")
