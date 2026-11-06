@@ -5,8 +5,8 @@ from typing import Any
 import httpx
 
 from ._agent import Agent, AsyncAgent
-from ._common import checked_text, identifier, object_field
-from ._transport import AsyncTransport, Transport, _Config
+from ._common import checked_text, object_field
+from ._transport import AsyncTransport, Transport, _Config, identifier
 
 
 def _create_body(

@@ -137,7 +137,7 @@ def _delay(response: httpx.Response | None, attempt: int) -> float | None:
             if not math.isfinite(value) or value < 0 or value > 30:
                 return None  # Return the response instead of ignoring a long delay.
             return value
-    return min(0.25 * (2**attempt), 2.0)
+    return float(min(0.25 * (2**attempt), 2.0))
 
 
 def _retryable(response: httpx.Response) -> bool:
