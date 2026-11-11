@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Add sync/async Knowledge wait_until_ready for exact revisions, metadata polling and bounded timeouts; async task cancellation cancels reads.
+- Send action parameter schemas as first-class choices (API0.24+) so the engine can repair them before success; reject schema-invalid successful server replies.
+- Clarify Context key/value errors and JSON null support. Align the exported __version__ with package metadata.
+
 ## 0.3.0
 
 - Add images to all four sync/async operations, with HTTPS URL validation, explicit model capability refusals and unchanged text requests.

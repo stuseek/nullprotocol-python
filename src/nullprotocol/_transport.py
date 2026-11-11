@@ -35,6 +35,11 @@ def utf16_length(value: str) -> int:
 def identifier(value: str, kind: str) -> str:
     pattern = r"[a-z0-9][a-z0-9._-]{0,63}" if kind == "agent ID" else r"[a-z][a-z0-9._-]{0,63}"
     if not isinstance(value, str) or not re.fullmatch(pattern, value):
+        if kind == "context key":
+            raise ValueError(
+                "Invalid context key. Use 1–64 lowercase letters, digits, dots, underscores or "
+                "hyphens, starting with a letter; for example order_id."
+            )
         raise ValueError(f"Invalid {kind}.")
     return value
 
@@ -156,6 +161,15 @@ def _retryable(response: httpx.Response) -> bool:
     return False
 
 
+def _budget(timeout: float, deadline: float | None) -> float:
+    if deadline is None:
+        return timeout
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("Knowledge preparation wait timed out.")
+    return min(timeout, remaining)
+
+
 class Transport:
     def __init__(self, config: _Config, client: httpx.Client | None = None) -> None:
         self.config = config
@@ -177,6 +191,7 @@ class Transport:
         body: Any = _UNSET,
         params: dict[str, str] | None = None,
         task_id: str | None = None,
+        deadline: float | None = None,
     ) -> dict[str, Any]:
         if self.closed:
             raise TransportError("This NullProtocol client is closed.", request_id=task_id)
@@ -188,6 +203,7 @@ class Transport:
             headers["Idempotency-Key"] = task_id
         retries = self.config.max_retries if method == "GET" or task_id is not None else 0
         for attempt in range(retries + 1):
+            timeout = _budget(self.config.timeout, deadline)
             response = None
             try:
                 response = self.client.request(
@@ -196,23 +212,25 @@ class Transport:
                     headers=headers,
                     content=content,
                     params=params,
-                    timeout=self.config.timeout,
+                    timeout=timeout,
                     follow_redirects=False,
                 )
             except httpx.TransportError as exc:
+                _budget(self.config.timeout, deadline)
                 if attempt == retries:
                     raise TransportError(
                         "NullProtocol could not be reached. "
                         "Preserve request_id before retrying a run.",
                         request_id=task_id,
                     ) from exc
+            _budget(self.config.timeout, deadline)
             if response is not None and (attempt == retries or not _retryable(response)):
                 return _decode(response, task_id)
             delay = _delay(response, attempt)
             if delay is None:
                 assert response is not None
                 return _decode(response, task_id)
-            time.sleep(delay)
+            time.sleep(_budget(delay, deadline))
         raise AssertionError("Unreachable transport state")
 
 
@@ -237,6 +255,7 @@ class AsyncTransport:
         body: Any = _UNSET,
         params: dict[str, str] | None = None,
         task_id: str | None = None,
+        deadline: float | None = None,
     ) -> dict[str, Any]:
         if self.closed:
             raise TransportError("This NullProtocol client is closed.", request_id=task_id)
@@ -248,6 +267,7 @@ class AsyncTransport:
             headers["Idempotency-Key"] = task_id
         retries = self.config.max_retries if method == "GET" or task_id is not None else 0
         for attempt in range(retries + 1):
+            timeout = _budget(self.config.timeout, deadline)
             response = None
             try:
                 response = await self.client.request(
@@ -256,21 +276,23 @@ class AsyncTransport:
                     headers=headers,
                     content=content,
                     params=params,
-                    timeout=self.config.timeout,
+                    timeout=timeout,
                     follow_redirects=False,
                 )
             except httpx.TransportError as exc:
+                _budget(self.config.timeout, deadline)
                 if attempt == retries:
                     raise TransportError(
                         "NullProtocol could not be reached. "
                         "Preserve request_id before retrying a run.",
                         request_id=task_id,
                     ) from exc
+            _budget(self.config.timeout, deadline)
             if response is not None and (attempt == retries or not _retryable(response)):
                 return _decode(response, task_id)
             delay = _delay(response, attempt)
             if delay is None:
                 assert response is not None
                 return _decode(response, task_id)
-            await asyncio.sleep(delay)
+            await asyncio.sleep(_budget(delay, deadline))
         raise AssertionError("Unreachable transport state")

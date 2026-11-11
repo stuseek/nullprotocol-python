@@ -126,9 +126,8 @@ shared = agent.space.knowledge.add(
     name="Returns policy",
     text="# Returns\nUnused goods may be returned within 30 days.",
 )
-source = agent.space.knowledge.get(shared["id"])
-if source["state"] == "ready":
-    agent.knowledge.connect(shared["id"])
+agent.space.knowledge.wait_until_ready(shared)
+agent.knowledge.connect(shared["id"])
 
 own = agent.knowledge.add(name="FAQ", text="We ship on weekdays.")
 changed = agent.knowledge.update(
@@ -141,7 +140,7 @@ agent.knowledge.delete(own["id"], if_version=changed["version"])
 
 Use these snippets inside the client context above. `add`/`update` return `id`, `revision` and `version`; preparation is asynchronous. Inspect `get(id)["state"]`: preparing, ready or failed, plus `activeRevision`, `error` and `retryScheduled`. For a live agent, stage a new document in the Space library and connect it after it is ready. An unprepared new agent-owned/connected source refuses Knowledge calls; calls without Knowledge continue. A replacement keeps the previous prepared revision in use until the new one is ready.
 
-Both stores provide `add`, `list`, `get`, `update`, `delete` and `retry`. `agent.knowledge.list()` lists only agent-owned documents. `agent.space.knowledge.list()` lists the shared library, and `agent.knowledge.connections()` lists connected Space sources. Read/update/delete through the owning store; connecting does not copy a document. Use `connect(id)`/`disconnect(id)` on `agent.knowledge`. Scope IDs do not change Knowledge ownership or connections.
+Both stores provide `add`, `list`, `get`, `wait_until_ready`, `update`, `delete` and `retry`. `agent.knowledge.list()` lists only agent-owned documents. `agent.space.knowledge.list()` lists the shared library, and `agent.knowledge.connections()` lists connected Space sources. Read/update/delete through the owning store; connecting does not copy a document. Use `connect(id)`/`disconnect(id)` on `agent.knowledge`. Scope IDs do not change Knowledge ownership or connections.
 
 Updates and deletes require `if_version`; a competing edit raises `APIError` with code `version_conflict`. The SDK never silently substitutes a newer version. A rename changes the version but not the text revision. `retry(id)` explicitly restarts failed preparation and returns a `retrying` flag; it does not wait or reindex a ready document. Preparation and searches can use embedding tokens. `agent.space.knowledge.usage()` returns 30-day Space totals: `preparation`, `search`, `uncounted` and `requests`, preserving unknown sums as None and reported sums as decimal strings.
 
@@ -176,7 +175,7 @@ if decision.success:
     print(execution.success, execution.outcome, execution.history_error)
 ```
 
-Handlers receive `(parameters, ActionContext)`. `context.input` is the original task; `context.decision` is a copy of its decision snapshot. The SDK supplies registered parameter schemas as structured data in the decision's `context` because the HTTP endpoint only accepts action names and descriptions. The original task and schema contract are visible in History. Automatic Knowledge queries still use the original task, not that schema wrapper.
+Handlers receive `(parameters, ActionContext)`. `context.input` is the original task; `context.decision` is a copy of its decision snapshot. Registered parameter schemas travel with the action choices. The hosted engine checks and repairs them before a successful decision, and execute rechecks them locally. Inline choices may also provide `parameters: schema`. The original task stays unchanged and is the input for automatic Knowledge search. These schema-bearing choices require API 0.24 or later.
 
 Before a handler runs, `execute` rereads pause/disabled settings, validates its parameters against the registered JSON Schema and checks the optional guard. A guard must return exactly `True`. Changing the returned result or values in a guard does not change the checked execution snapshot. Only an original successful decision from that agent object can be executed; a JSON/HTTP response loaded elsewhere is not executable. There is no implicit `chat` action or automatic tool loop.
 
@@ -250,3 +249,11 @@ result = agent.extract(
 Use the loaded agent inside your client context. All four operations support up to four reachable HTTPS photo URLs of at most 2048 UTF-16 characters. Async clients accept the same keyword. Select a Vision-capable model. Empty text is allowed for photo-only input; validate still needs criteria and decide needs its actions. Inline base64, browser blob URLs and local files are not supported.
 
 History retains URLs, not immutable copies of remote images. Knowledge uses a text query, not the photo or its URL; supply an explicit query for a photo-only search. Generation usage includes provider-reported image tokens. The gateway conservatively holds credit against the model context ceiling for photo calls, settles actual reported usage and releases the unused reserve. [Photo guide](https://nullprotocol.ai/docs/images?lang=python).
+
+## Wait for preparation
+
+`agent.knowledge.wait_until_ready(source, timeout=120)` accepts the revision returned by `add`, `update` or `get` and waits for that exact version using metadata only. Timeout is seconds. Both agent and Space stores support it. On an async agent, await the method; cancelling the task cancels waiting and the in-flight read. Server preparation continues.
+
+The method waits through server-scheduled retries without starting new ones. It raises `KnowledgeError` with code `version_conflict`, `knowledge_not_found`, `knowledge_prepare_failed` or `knowledge_wait_timeout`. The returned dictionary contains metadata, not the full text.
+
+Saved Context keys have 1–64 lowercase letters, digits, dots, underscores or hyphens, starting with a letter. JSON `None` is a stored null value; use `delete` to remove it.

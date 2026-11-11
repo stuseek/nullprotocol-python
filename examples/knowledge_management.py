@@ -1,7 +1,5 @@
 """Set NULLPROTOCOL_KEY and create support first. Uses hosted tokens; cleans up its source."""
 
-import time
-
 from nullprotocol import NullProtocol, NullProtocolError
 
 with NullProtocol() as client:
@@ -12,18 +10,7 @@ with NullProtocol() as client:
     )
     connected = False
     try:
-        deadline = time.monotonic() + 30
-        while True:
-            status = agent.space.knowledge.get(source["id"])
-            if status["version"] != source["version"]:
-                raise RuntimeError("The source was edited by another client.")
-            if status["state"] == "ready":
-                break
-            if status["state"] == "failed":
-                raise RuntimeError(f"Preparation failed: {status['error']}")
-            if time.monotonic() >= deadline:
-                raise TimeoutError("Knowledge is still preparing. Try again later.")
-            time.sleep(0.25)
+        agent.space.knowledge.wait_until_ready(source, timeout=30)
         agent.knowledge.connect(source["id"])
         connected = True
         result = agent.extract(

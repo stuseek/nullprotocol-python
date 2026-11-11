@@ -16,7 +16,7 @@ from ._transport import identifier, json_body, request_id, scope_id, utf16_lengt
 from ._types import Result
 
 Knowledge = bool | dict[str, str]
-ActionChoice = str | dict[str, str]
+ActionChoice = str | dict[str, Any]
 
 
 def object_field(body: dict[str, Any], field: str) -> dict[str, Any]:
@@ -244,12 +244,16 @@ class AgentState:
     def _choices(self, context: Any, actions: list[ActionChoice]) -> dict[str, Any]:
         if not isinstance(actions, list) or not 1 <= len(actions) <= 32:
             raise ValueError("actions must contain 1–32 action choices.")
-        choices, schemas = [], {}
+        choices = []
         for offered in actions:
             if isinstance(offered, str):
                 name = offered
                 description = None
-            elif isinstance(offered, dict) and set(offered) <= {"action", "description"}:
+            elif isinstance(offered, dict) and set(offered) <= {
+                "action",
+                "description",
+                "parameters",
+            }:
                 name = offered.get("action", "")
                 description = offered.get("description")
             else:
@@ -260,21 +264,39 @@ class AgentState:
             registered = self._actions.get(name)
             if description is None and registered is not None:
                 description = registered.description
-            choice = {"action": name}
+            choice: dict[str, Any] = {"action": name}
             if description is not None:
                 if not isinstance(description, str) or utf16_length(description) > 1000:
                     raise ValueError("Action description must have at most 1000 UTF-16 characters.")
                 choice["description"] = description
+            schema = registered.schema if registered is not None else None
+            if schema is None and isinstance(offered, dict):
+                if "parameters" in offered:
+                    schema = offered["parameters"]
+                    schema_validator(schema)
+            if schema is not None:
+                choice["parameters"] = deepcopy(schema)
             choices.append(choice)
-            if registered is not None and registered.schema is not None:
-                schemas[name] = deepcopy(registered.schema)
-        # The HTTP endpoint accepts action descriptions, not schemas. Send schema
-        # contracts as structured task data and enforce them locally before execution.
-        prepared = {"task": context, "actionParameterSchemas": schemas} if schemas else context
-        return {"context": prepared, "actions": choices}
+        return {"context": context, "actions": choices}
 
-    def _remember(self, result: Result[Any], original: Any) -> Result[Any]:
+    def _remember(
+        self, result: Result[Any], original: Any, choices: list[dict[str, Any]]
+    ) -> Result[Any]:
         if result.success:
+            from ._errors import ProtocolError
+
+            chosen = next((choice for choice in choices if choice["action"] == result.action), None)
+            if chosen is None:
+                raise ProtocolError(
+                    "The server returned an action that was not offered.",
+                    request_id=result.request_id,
+                )
+            schema = chosen.get("parameters")
+            if schema is not None and not schema_validator(schema).is_valid(result.parameters):
+                raise ProtocolError(
+                    "The server returned parameters that do not match the action schema.",
+                    request_id=result.request_id,
+                )
             snapshot = Result.from_response(
                 {"result": result.raw, "operationId": result.operation_id},
                 result.request_id,

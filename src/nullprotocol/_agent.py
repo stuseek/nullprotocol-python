@@ -27,7 +27,7 @@ from ._stores import (
     MemoryStore,
     SpaceContextStore,
 )
-from ._transport import _UNSET, AsyncTransport, Transport, json_body
+from ._transport import _UNSET, AsyncTransport, Transport
 from ._types import ActionContext, Execution, Result
 
 
@@ -59,20 +59,6 @@ def _result(response: dict[str, Any], task_id: str, operation: str) -> Result[An
             f"Invalid {operation} result in the server response.", request_id=task_id
         )
     return result
-
-
-def _knowledge_for_decision(
-    context: Any,
-    values: dict[str, Any],
-    knowledge: Knowledge | None,
-) -> Knowledge | None:
-    if (
-        knowledge is True
-        and isinstance(values["context"], dict)
-        and "actionParameterSchemas" in values["context"]
-    ):
-        return {"query": context if isinstance(context, str) else json_body(context).decode()}
-    return knowledge
 
 
 def _changes(values: dict[str, Any]) -> dict[str, Any]:
@@ -273,12 +259,12 @@ class Agent(AgentState):
         result = self._run(
             "decide",
             values,
-            _knowledge_for_decision(original, values, knowledge),
+            knowledge,
             context_keys,
             idempotency_key,
             images,
         )
-        return self._remember(result, original)
+        return self._remember(result, original, values["actions"])
 
     def execute(self, decision: Result[Any]) -> Execution:
         made, problem = self._consume(decision)
@@ -481,12 +467,12 @@ class AsyncAgent(AgentState):
         result = await self._run(
             "decide",
             values,
-            _knowledge_for_decision(original, values, knowledge),
+            knowledge,
             context_keys,
             idempotency_key,
             images,
         )
-        return self._remember(result, original)
+        return self._remember(result, original, values["actions"])
 
     async def execute(self, decision: Result[Any]) -> Execution:
         made, problem = self._consume(decision)

@@ -205,3 +205,135 @@ def test_async_management_matches_sync_routes():
                 assert await agent.space.knowledge.retry(shared["id"]) == {"retrying": False}
 
     asyncio.run(run())
+
+
+def test_wait_pins_revision_reads_metadata_and_observes_scheduled_retry():
+    from nullprotocol import KnowledgeError
+
+    api = KnowledgeAPI()
+    source = api.documents["agent"].copy()
+    count = 0
+
+    def handler(request):
+        nonlocal count
+        if request.url.path.endswith("/knowledge") and request.method == "GET":
+            count += 1
+            current = {**source, "state": "failed", "retryScheduled": True}
+            if count > 1:
+                current.update(state="ready", activeRevision=1, retryScheduled=False)
+            return httpx.Response(200, json={"sources": [current]})
+        return api(request)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        with NullProtocol(
+            key="fixture", endpoint="https://example.test", http_client=http
+        ) as client:
+            agent = client.load("support")
+            ready = agent.knowledge.wait_until_ready(source, timeout=2)
+            assert ready["activeRevision"] == 1
+            assert count == 2
+            assert all(not str(req.url).endswith(source["id"]) for req in api.requests)
+            changed = {**source, "version": str(uuid4())}
+            with pytest.raises(KnowledgeError) as conflict:
+                agent.knowledge.wait_until_ready(changed)
+            assert conflict.value.code == "version_conflict"
+
+
+@pytest.mark.parametrize(
+    "state,code",
+    [
+        ("failed", "knowledge_prepare_failed"),
+        ("missing", "knowledge_not_found"),
+        ("preparing", "knowledge_wait_timeout"),
+    ],
+)
+def test_wait_terminal_states_and_timeout(state, code):
+    from nullprotocol import KnowledgeError
+
+    api = KnowledgeAPI()
+    source = api.documents["space"]
+
+    def handler(request):
+        if request.url.path == "/v1/knowledge":
+            rows = (
+                [] if state == "missing" else [{**source, "state": state, "retryScheduled": False}]
+            )
+            return httpx.Response(200, json={"sources": rows})
+        return api(request)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        with NullProtocol(
+            key="fixture", endpoint="https://example.test", http_client=http
+        ) as client:
+            with pytest.raises(KnowledgeError) as error:
+                client.load("support").space.knowledge.wait_until_ready(source, timeout=0.02)
+            assert error.value.code == code
+
+
+def test_wait_async_cancellation_aborts_http_and_timeout_is_bounded():
+    from nullprotocol import KnowledgeError
+
+    async def run():
+        api = KnowledgeAPI()
+        entered = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def handler(request):
+            if request.url.path.endswith("/knowledge"):
+                entered.set()
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    cancelled.set()
+            return api(request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            async with AsyncNullProtocol(
+                key="fixture", endpoint="https://example.test", http_client=http
+            ) as client:
+                agent = await client.load("support")
+                task = asyncio.create_task(agent.knowledge.wait_until_ready(api.documents["agent"]))
+                await entered.wait()
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+                assert cancelled.is_set()
+                cancelled.clear()
+                with pytest.raises(KnowledgeError) as timeout:
+                    await agent.knowledge.wait_until_ready(api.documents["agent"], timeout=0.02)
+                assert timeout.value.code == "knowledge_wait_timeout"
+                assert cancelled.is_set()
+
+    asyncio.run(run())
+
+
+def test_wait_async_ready_and_busy_retry_respects_deadline():
+    from nullprotocol import KnowledgeError
+
+    async def run():
+        api = KnowledgeAPI()
+        source = api.documents["agent"]
+        source.update(state="ready", activeRevision=1)
+        busy = False
+        requests = 0
+
+        async def handler(request):
+            nonlocal requests
+            if busy and request.url.path.endswith("/knowledge"):
+                requests += 1
+                return httpx.Response(503, json={"error": "busy"})
+            return api(request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            async with AsyncNullProtocol(
+                key="fixture", endpoint="https://example.test", http_client=http
+            ) as client:
+                agent = await client.load("support")
+                assert (await agent.knowledge.wait_until_ready(source))["activeRevision"] == 1
+                busy = True
+                with pytest.raises(KnowledgeError) as timeout:
+                    await agent.knowledge.wait_until_ready(source, timeout=0.02)
+                assert timeout.value.code == "knowledge_wait_timeout"
+                assert requests == 1
+
+    asyncio.run(run())

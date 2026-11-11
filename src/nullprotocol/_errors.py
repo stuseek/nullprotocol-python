@@ -7,6 +7,16 @@ class NullProtocolError(Exception):
     """Base SDK error. Failed model operations are returned as Result, not raised."""
 
 
+class KnowledgeError(NullProtocolError):
+    """Preparation waiting failed locally; no model operation was run."""
+
+    def __init__(
+        self, code: str, message: str, *, source_id: str, version: str, reason: str | None = None
+    ) -> None:
+        self.code, self.source_id, self.version, self.reason = code, source_id, version, reason
+        super().__init__(message)
+
+
 class APIError(NullProtocolError):
     """An HTTP failure. Keep request_id when retrying an uncertain run."""
 
@@ -24,7 +34,17 @@ class APIError(NullProtocolError):
         self.request_id = request_id
         self.details = details or {}
         self.retry_after = retry_after
-        super().__init__(f"NullProtocol HTTP {status_code}: {code}")
+        messages = {
+            "invalid_context_key": (
+                "A Context key must have 1–64 lowercase letters, digits, dots, underscores or "
+                "hyphens, starting with a letter; for example order_id."
+            ),
+            "invalid_context_value": (
+                "Context value must be JSON-serializable. JSON null is allowed; "
+                "use delete to remove an entry."
+            ),
+        }
+        super().__init__(f"NullProtocol HTTP {status_code}: {messages.get(code, code)}")
 
 
 class TransportError(NullProtocolError):

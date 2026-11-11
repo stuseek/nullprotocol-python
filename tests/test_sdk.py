@@ -384,8 +384,9 @@ def test_decide_execute_schema_guard_snapshot_and_recording(api):
         )
         decision = agent.decide("Good morning", ["send_message"], knowledge=True)
         posted = json.loads(api.requests[-1].content)
-        assert posted["knowledge"] == {"query": "Good morning"}
-        assert posted["context"]["actionParameterSchemas"]["send_message"] == SCHEMA
+        assert posted["knowledge"] is True
+        assert posted["context"] == "Good morning"
+        assert posted["actions"][0]["parameters"] == SCHEMA
         decision.parameters["text"] = "tampered"
         outcome = agent.execute(decision)
         assert outcome.success and outcome.result == {"sent": True}
@@ -431,14 +432,13 @@ def test_execution_refusals_and_failures(api, mode, code):
         agent = c.load("support")
         if mode != "unregistered":
             agent.register_action("send_message", handler, input_schema=SCHEMA, guard=guard)
-        if mode == "schema":
-            api.result_override = {
-                "success": True,
-                "action": "send_message",
-                "parameters": {"wrong": 1},
-                "reasoning": "x",
-            }
         result = agent.decide("Hello", ["send_message"])
+        if mode == "schema":
+            agent.register_action(
+                "send_message",
+                handler,
+                input_schema={"type": "object", "required": ["new_required_field"]},
+            )
         if mode == "paused":
             api.settings["paused"] = True
         if mode == "disabled":
@@ -610,7 +610,8 @@ def test_action_format_validation_and_local_references(api):
             "parameters": {"date": "2026-02-29"},
             "reasoning": "x",
         }
-        assert agent.execute(agent.decide("x", ["send_message"])).error_code == "invalid_parameters"
+        with pytest.raises(ProtocolError, match="parameters"):
+            agent.decide("x", ["send_message"])
         api.result_override = {
             "success": True,
             "action": "send_message",
@@ -692,3 +693,32 @@ def test_nonfinite_or_missing_response_metadata_is_protocol_error(api):
         )
         with pytest.raises(ProtocolError):
             agent.extract("x", {})
+
+
+def test_context_null_and_key_errors_are_unambiguous(api):
+    with client(api) as c:
+        agent = c.load("support")
+        assert agent.context.set("order", None)["value"] is None
+        assert json.loads(api.requests[-1].content)["value"] is None
+        count = len(api.requests)
+        with pytest.raises(ValueError, match="lowercase"):
+            agent.context.set("privateProbe", {})
+        assert len(api.requests) == count
+
+
+def test_inline_parameter_contracts_stay_out_of_context_and_reject_bad_server_success(api):
+    with client(api) as c:
+        agent = c.load("support")
+        result = agent.decide("Hello", [{"action": "send_message", "parameters": SCHEMA}])
+        assert result.success
+        body = json.loads(api.requests[-1].content)
+        assert body["context"] == "Hello"
+        assert body["actions"][0]["parameters"] == SCHEMA
+        api.result_override = {
+            "success": True,
+            "action": "send_message",
+            "parameters": {"text": 42},
+            "reasoning": "test",
+        }
+        with pytest.raises(ProtocolError, match="parameters"):
+            agent.decide("Hello", [{"action": "send_message", "parameters": SCHEMA}])
