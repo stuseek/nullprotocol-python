@@ -15,6 +15,7 @@ from ._common import (
     object_field,
     operation_payload,
     summary_options,
+    task_payload,
     validation_options,
 )
 from ._errors import APIError, ProtocolError
@@ -119,6 +120,14 @@ def _record_body(made: MadeDecision, outcome: Execution, started: float) -> dict
     return body
 
 
+def _task_result(response: dict[str, Any], task_id: str) -> Result[Any]:
+    task = response.get("task")
+    operation = task.get("operation") if isinstance(task, dict) else None
+    if operation not in ("extract", "summarize", "validate", "decide"):
+        raise ProtocolError("Missing task in the server response.", request_id=task_id)
+    return _result(response, task_id, operation)
+
+
 class Agent(AgentState):
     """A saved hosted agent. Call methods synchronously; use AsyncAgent in async apps."""
 
@@ -184,6 +193,32 @@ class Agent(AgentState):
             task_id,
             operation,
         )
+
+    def run(
+        self,
+        task: str,
+        input: Any,
+        *,
+        reference: Any = _UNSET,
+        images: list[str] | None = None,
+        knowledge: Knowledge | None = None,
+        idempotency_key: str | None = None,
+    ) -> Result[Any]:
+        """Run a saved task on input. Its operation and settings come from the agent.
+
+        The result has the fields of the task's operation and ``task`` with the
+        revision that ran. ``reference`` belongs to validate tasks.
+        """
+        original = deepcopy(input)
+        task_id = self._task_id(idempotency_key)
+        body = task_payload(task, input, reference, _UNSET, self.scope, knowledge, images)
+        result = _task_result(
+            self._transport.request(
+                "POST", f"{self._path}/tasks/{task}/run", body=body, task_id=task_id
+            ),
+            task_id,
+        )
+        return self._remember(result, original, None) if result.action is not None else result
 
     def extract(
         self,
@@ -392,6 +427,32 @@ class AsyncAgent(AgentState):
             task_id,
             operation,
         )
+
+    async def run(
+        self,
+        task: str,
+        input: Any,
+        *,
+        reference: Any = _UNSET,
+        images: list[str] | None = None,
+        knowledge: Knowledge | None = None,
+        idempotency_key: str | None = None,
+    ) -> Result[Any]:
+        """Run a saved task on input. Its operation and settings come from the agent.
+
+        The result has the fields of the task's operation and ``task`` with the
+        revision that ran. ``reference`` belongs to validate tasks.
+        """
+        original = deepcopy(input)
+        task_id = self._task_id(idempotency_key)
+        body = task_payload(task, input, reference, _UNSET, self.scope, knowledge, images)
+        result = _task_result(
+            await self._transport.request(
+                "POST", f"{self._path}/tasks/{task}/run", body=body, task_id=task_id
+            ),
+            task_id,
+        )
+        return self._remember(result, original, None) if result.action is not None else result
 
     async def extract(
         self,

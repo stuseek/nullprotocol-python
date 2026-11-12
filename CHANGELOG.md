@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add sync/async `agent.run(task, input)` for saved tasks. Results carry `task` with its name, revision and operation. Requires the API with task routes.
+
 ## 0.4.0
 
 - Add sync/async Knowledge wait_until_ready for exact revisions, metadata polling and bounded timeouts; async task cancellation cancels reads.

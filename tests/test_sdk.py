@@ -52,6 +52,32 @@ def test_sync_four_operations_and_usage(api):
     )
 
 
+def test_saved_task_sends_only_input_and_its_decision_executes_once(api):
+    delivered = []
+    with client(api) as c:
+        agent = c.load("support", scope="order-7")
+        read = agent.run("read-days", "Returns within 30 days.")
+        assert read.data == {"days": 30}
+        assert read.task == {"name": "read-days", "revision": 2, "operation": "extract"}
+        checked = agent.run("check-reply", "Refund gift cards.", reference="Policy")
+        assert checked.recommendation == "fail"
+        agent.register_action("send_message", lambda p, ctx: delivered.append(ctx.input))
+        decision = agent.run("route", "Good morning")
+        assert agent.execute(decision).success
+        assert agent.execute(decision).error_code == "already_executed"
+        assert delivered == ["Good morning"]
+        with pytest.raises(ValueError):
+            agent.run("Read Days", "x")
+    runs = [r for r in api.requests if r.url.path.endswith("/run")]
+    assert runs[0].url.path == "/v1/agents/support/tasks/read-days/run"
+    assert json.loads(runs[0].content) == {
+        "input": "Returns within 30 days.",
+        "conversation": "order-7",
+    }
+    assert json.loads(runs[1].content)["reference"] == "Policy"
+    assert len(runs) == 3
+
+
 def test_explicit_scope_context_memory_shared_and_versions(api):
     with client(api) as c:
         agent = c.load("support", scope="order:42")

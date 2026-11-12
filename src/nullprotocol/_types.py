@@ -84,6 +84,8 @@ class Result(Generic[T]):
     knowledge_usage: KnowledgeUsage | None = None
     knowledge: dict[str, Any] | None = None
     history_error: str | None = None
+    #: The saved task a run named: its name, revision then and operation.
+    task: dict[str, Any] | None = None
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property
@@ -154,6 +156,7 @@ class Result(Generic[T]):
             knowledge_usage=knowledge_usage,
             knowledge=deepcopy(value.get("knowledge")),
             history_error=value.get("historyError"),
+            task=deepcopy(response.get("task")),
             _raw=deepcopy(value),
         )
 

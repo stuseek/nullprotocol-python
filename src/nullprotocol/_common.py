@@ -55,6 +55,30 @@ def checked_text(value: str, name: str, maximum: int) -> str:
     return value
 
 
+TASK_NAME = re.compile(r"[a-z][a-z0-9._-]{0,63}")
+
+
+def task_payload(
+    task: str,
+    input: Any,
+    reference: Any,
+    unset: Any,
+    scope: str | None,
+    knowledge: Knowledge | None,
+    images: list[str] | None,
+) -> dict[str, Any]:
+    """What a run of a saved task sends: the input and this run's own options."""
+    if not isinstance(task, str) or not TASK_NAME.fullmatch(task):
+        raise ValueError(
+            "A task name starts with a lowercase letter and has up to 64 lowercase "
+            "letters, digits, dots, underscores or hyphens."
+        )
+    values = {"input": input} if reference is unset else {"input": input, "reference": reference}
+    body = operation_payload("", values, scope, knowledge, None, images)
+    del body["operation"]
+    return body
+
+
 def operation_payload(
     operation: str,
     values: dict[str, Any],
@@ -280,12 +304,17 @@ class AgentState:
         return {"context": context, "actions": choices}
 
     def _remember(
-        self, result: Result[Any], original: Any, choices: list[dict[str, Any]]
+        self, result: Result[Any], original: Any, choices: list[dict[str, Any]] | None
     ) -> Result[Any]:
         if result.success:
             from ._errors import ProtocolError
 
-            chosen = next((choice for choice in choices if choice["action"] == result.action), None)
+            # A saved task's actions live on the server, which checked the choice.
+            chosen = (
+                {}
+                if choices is None
+                else next((choice for choice in choices if choice["action"] == result.action), None)
+            )
             if chosen is None:
                 raise ProtocolError(
                     "The server returned an action that was not offered.",

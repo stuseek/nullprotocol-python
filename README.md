@@ -58,6 +58,18 @@ Always check `result.success`. A completed validation with recommendation `fail`
 
 The Python summary limit defaults to 200 characters to match the JavaScript SDK; it is sent explicitly to the HTTP API. Invalid output gets the server's normal repair attempt. This client does not add its own generation or repair loop.
 
+## Run a saved task
+
+A task keeps an operation with its schema, criteria or actions on the agent. Your code names the task and sends the input, so a teammate can change the task in the cabinet without a deployment.
+
+```python
+result = agent.run("read-request", "Order 1042 arrived with a broken mug.")
+if result.success:
+    print(result.data, result.task)  # task: name, revision and operation
+```
+
+The result has the fields of the task's operation. `reference=` belongs to validate tasks; `images=`, `knowledge=` and `idempotency_key=` work as in the four operations. A decision made by a task can be passed to `agent.execute`. Create and edit tasks in the cabinet, with the JavaScript SDK or over HTTP.
+
 ## Async applications
 
 ```python

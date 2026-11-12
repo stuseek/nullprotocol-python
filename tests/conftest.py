@@ -16,6 +16,7 @@ class FakeAPI:
         self.actions = []
         self.entries = {}
         self.notes = []
+        self.tasks = {"read-days": "extract", "check-reply": "validate", "route": "decide"}
         self.settings = {
             "agentId": "support",
             "provider": "nullprotocol",
@@ -42,6 +43,9 @@ class FakeAPI:
             self.settings["agentId"] = body.get("agentId", "issued-id")
             return httpx.Response(201, json={"agent": self.settings})
         if path.endswith("/run"):
+            # A saved task holds the operation the caller does not send.
+            task = path.split("/tasks/")[1].split("/")[0] if "/tasks/" in path else None
+            operation = self.tasks[task] if task else body["operation"]
             key = request.headers["Idempotency-Key"]
             if key in self.runs:
                 old_body, response = self.runs[key]
@@ -71,13 +75,15 @@ class FakeAPI:
                 if self.result_override is not None
                 else {
                     "success": True,
-                    **outputs[body["operation"]],
+                    **outputs[operation],
                     "attempts": 1,
                     "repaired": False,
                     "usage": {"inputTokens": 100, "outputTokens": 20},
                 }
             )
             response = {"result": deepcopy(result), "operationId": str(uuid4())}
+            if task:
+                response["task"] = {"name": task, "revision": 2, "operation": operation}
             self.runs[key] = (body, response)
             return httpx.Response(200, json=response)
         if path.endswith("/actions"):
