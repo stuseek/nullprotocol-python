@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
-- Add sync/async `agent.run(task, input)` for saved tasks. Results carry `task` with its name, revision and operation. Requires the API with task routes.
+- Add sync/async `agent.run(task, input)` for saved tasks. Results carry `task` with its name, revision and operation. Requires API 0.25.0.
 
 ## 0.4.0
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nullprotocol"
-version = "0.4.0"
+version = "0.5.0"
 description = "Focused AI tasks with managed context, Knowledge and observable results"
 readme = "README.md"
 requires-python = ">=3.10"

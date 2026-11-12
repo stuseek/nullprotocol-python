@@ -6,7 +6,7 @@ from ._errors import APIError, KnowledgeError, NullProtocolError, ProtocolError,
 from ._knowledge import AgentKnowledge, AsyncAgentKnowledge, AsyncKnowledgeLibrary, KnowledgeLibrary
 from ._types import ActionContext, Execution, KnowledgeUsage, Result, Usage
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
     "AgentKnowledge",
     "KnowledgeLibrary",
